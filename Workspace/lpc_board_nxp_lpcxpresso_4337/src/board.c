@@ -70,10 +70,24 @@ void Board_UART_Init(LPC_USART_T *pUART)
 #endif
 
 #if defined (BOARD_EDU_CIAA_NXP)
-	Chip_SCU_PinMuxSet(0x7, 1, (SCU_MODE_INACT | SCU_MODE_FUNC6));					/* P7,1 : UART2_TXD */
-	Chip_SCU_PinMuxSet(0x7, 2, (SCU_MODE_INACT | SCU_MODE_INBUFF_EN | SCU_MODE_ZIF_DIS | SCU_MODE_FUNC6));/* P7.2 : UART2_RXD */
+	if (pUART==LPC_USART2)
+	{
+		Chip_SCU_PinMuxSet(0x7, 1, (SCU_MODE_INACT | SCU_MODE_FUNC6));					/* P7,1 : UART2_TXD */
+		Chip_SCU_PinMuxSet(0x7, 2, (SCU_MODE_INACT | SCU_MODE_INBUFF_EN | SCU_MODE_ZIF_DIS | SCU_MODE_FUNC6));/* P7.2 : UART2_RXD */
+	}
+	if (pUART==LPC_USART0)
+	{
+		Chip_SCU_PinMuxSet(0x6, 4, (SCU_MODE_INACT | SCU_MODE_FUNC2));					/* P6,4 : UART0_TXD */
+		Chip_SCU_PinMuxSet(0x6, 5, (SCU_MODE_INACT | SCU_MODE_INBUFF_EN | SCU_MODE_ZIF_DIS | SCU_MODE_FUNC2));/* P6.5 : UART0_RXD */
+	}
+	if (pUART==LPC_USART3)
+	{
+		Chip_SCU_PinMuxSet(2, 3, (SCU_MODE_INACT | SCU_MODE_FUNC2));              /* P2_3,FUNC2: UART3_TXD */
+		Chip_SCU_PinMuxSet(2, 4, (SCU_MODE_INACT | SCU_MODE_INBUFF_EN | SCU_MODE_ZIF_DIS | SCU_MODE_FUNC2)); /* P2_4,FUNC2: UART3_RXD */
+	}
 #endif
 }
+
 
 /* Initialize debug output via UART for board */
 void Board_Debug_Init(void)

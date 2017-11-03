@@ -3,24 +3,17 @@
 /*****************************************************************************
  * Interrupciones
  ****************************************************************************/
-/* Interrupcion del boton de encendido */
-void START_IRQN_HANDLER(void){
+/* Handler de la USART */
+void USART_IRQN_HANDLER()
+{
 	portBASE_TYPE xHigherPriorityTaskWoken = pdFALSE;
 
-	Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(START_PININT_INDEX));	//Se limpian las interrupciones
+	control_char=Chip_UART_ReadByte(USART);
+	Chip_UART_IntDisable(USART, UART_IER_RBRINT);
+	Chip_UART_ReadLineStatus(USART);
 
-	xSemaphoreGiveFromISR(xStartSemaphore, &xHigherPriorityTaskWoken);	//Se otorga el semaforo
-	portEND_SWITCHING_ISR(xHigherPriorityTaskWoken);		//Se fuerza un cambio de contexto si es necesario
-}
-
-/* Interrupcion del boton de apagado */
-void STOP_IRQN_HANDLER(void){
-	portBASE_TYPE xHigherPriorityTaskWoken = pdFALSE;
-
-	Chip_PININT_ClearIntStatus(LPC_GPIO_PIN_INT, PININTCH(STOP_PININT_INDEX));	//Se limpian las interrupciones
-
-	xSemaphoreGiveFromISR(xStopSemaphore, &xHigherPriorityTaskWoken);	//Se otorga el semaforo
-	portEND_SWITCHING_ISR(xHigherPriorityTaskWoken);		//Se fuerza un cambio de contexto si es necesario
+	xSemaphoreGiveFromISR(xUSARTSemaphore, &xHigherPriorityTaskWoken);
+	portEND_SWITCHING_ISR(xHigherPriorityTaskWoken);
 }
 
 /* Handler del ADC que mide la temperatura */
@@ -46,6 +39,23 @@ void PHASE_IRQN_HANDLER(void){
 /*****************************************************************************
  * Tareas
  ****************************************************************************/
+static void vHandlerUSART(void *pvParameters){
+	ConfigureUSART();
+
+	/* Se toma el semaforo para vaciarlo antes de entrar al loop infinito */
+	xSemaphoreTake(xUSARTSemaphore,(portTickType) 0);
+
+	while(1)
+	{
+		/* La tarea permanece bloqueada hasta que el semaforo se libera */
+		xSemaphoreTake(xUSARTSemaphore,portMAX_DELAY);
+		if (control_char=='B')
+			xSemaphoreGive(xStopSemaphore);
+		if (control_char=='A')
+			xSemaphoreGive(xStartSemaphore);
+		Chip_UART_IntEnable(USART, UART_IER_RBRINT);
+	}
+}
 
 /* Esta tarea se encarga de encender el horno cuando se presiona el boton
  * de encendido. */
@@ -97,6 +107,8 @@ static void vHandlerStart(void *pvParameters){
 		/* Se crea la tarea que actualiza la temperatura de referencia */
 		xTaskCreate(vHandlerUpdateTemperatureReference, (char *) "UpdateReference", configMINIMAL_STACK_SIZE,
 							(void *) 0, (tskIDLE_PRIORITY + 4UL), &UpdateReferenceTaskHandle );
+		xTaskCreate(vHandlerUSARTTransmit, (char *) "USARTTransmit",configMINIMAL_STACK_SIZE,
+							(void *) 0, (tskIDLE_PRIORITY + 1U), &USARTTransmitTaskHandle);
 	}
 
 	vTaskSuspend( StartTaskHandle );	//Se suspende la tarea de encendido
@@ -121,6 +133,7 @@ static void vHandlerStart(void *pvParameters){
 			vTaskResume(ControllerTaskHandle);
 			vTaskResume(PhaseTaskHandle);
 			vTaskResume(UpdateReferenceTaskHandle);
+			vTaskResume(USARTTransmitTaskHandle);
 
 			vTaskSuspend( StartTaskHandle );	//Se suspende la tarea de encendido
 	}
@@ -154,6 +167,7 @@ static void vHandlerStop(void *pvParameters){
         vTaskSuspend( ControllerTaskHandle );
         vTaskSuspend( PhaseTaskHandle );
         vTaskSuspend( UpdateReferenceTaskHandle );
+        vTaskSuspend( USARTTransmitTaskHandle );
 
         /* Se apaga la resistencia calentadora */
         Chip_GPIO_SetPinState(LPC_GPIO_PORT, TRIGGER_GPIO_INT_PORT, TRIGGER_GPIO_INT_PIN, false);
@@ -247,6 +261,19 @@ static void vHandlerUpdateTemperatureReference(void *pvParameters){
     }
 }
 
+static void vHandlerUSARTTransmit(void *pvParameters)
+{
+	uint8_t temperature;
+	portTickType xLastExecutionTime;
+	xLastExecutionTime = xTaskGetTickCount();
+	while(1)
+	{
+	temperature = (uint8_t) get_temperature( thermocouple_temp );
+	Chip_UART_SendByte(USART,temperature);
+	Chip_UART_SendByte(USART,'\n');
+	vTaskDelayUntil(&xLastExecutionTime,1000 / portTICK_RATE_MS);//envia la data cada 1 seg
+	}
+}
 
 /*****************************************************************************
  * Funcion main
@@ -254,14 +281,18 @@ static void vHandlerUpdateTemperatureReference(void *pvParameters){
 int main(void){
 	SetupHardware();	//Se inicializa el hardware
 
-	vSemaphoreCreateBinary(xStartSemaphore);		//Se crea el semaforo para el encendido
+	vSemaphoreCreateBinary(xUSARTSemaphore);		//Se crea el semaforo que recibe de la usart
+	vSemaphoreCreateBinary(xStartSemaphore);
 
 	/* Se verifica que el semaforo haya sido creado correctamente */
-	if( (xStartSemaphore!=(xSemaphoreHandle)NULL)){
+	if( (xUSARTSemaphore!=(xSemaphoreHandle)NULL) && (xStartSemaphore!=(xSemaphoreHandle)NULL)){
 
-		/* Se crea la tarea de encendido */
-		xTaskCreate(vHandlerStart, (char *) "Start", configMINIMAL_STACK_SIZE,
-							(void *) 0, (tskIDLE_PRIORITY + 4UL), &StartTaskHandle );
+		/* Se crea la tarea de USART */
+				xTaskCreate(vHandlerUSART, (char *) "USART", configMINIMAL_STACK_SIZE,
+									(void *) 0, (tskIDLE_PRIORITY + 4UL), &USARTTaskHandle );
+		/* Se crea la tarea de USART */
+				xTaskCreate(vHandlerStart, (char *) "START", configMINIMAL_STACK_SIZE,
+									(void *) 0, (tskIDLE_PRIORITY + 4UL), &StartTaskHandle );
 
 
 		vTaskStartScheduler(); /* Se comienzan a ejecutar las tareas. */

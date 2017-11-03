@@ -11,6 +11,9 @@
 
 #include "Configure.h"
 #include "utils.h"
+xSemaphoreHandle xUSARTSemaphore;	// Semaforo para la recepcion por usart
+TaskHandle_t USARTTaskHandle;		// Handler de la tarea de recepcion por usart
+volatile char control_char=0;
 
 xSemaphoreHandle xStartSemaphore;	//Semaforo para el encendido del horno
 TaskHandle_t StartTaskHandle;		//Handler de la tarea de encendido
@@ -29,6 +32,7 @@ xSemaphoreHandle xPhaseSemaphore;		//Semaforo para la deteccion de cruces por ce
 TaskHandle_t PhaseTaskHandle;			//Handler de la tarea del detector de fase
 
 TaskHandle_t UpdateReferenceTaskHandle; //Handler de la tarea que actualiza la referencia de temperatura
+TaskHandle_t USARTTransmitTaskHandle;	//Handler de la tarea que envia la info medida
 
 float thermocouple_temp=0;		//Temperatura de la termocupla
 bool trigger_state=false;		//Estado del trigger
@@ -90,11 +94,13 @@ const float temperature_profile[]={25,
 		   61.193
 };
 
+static void vHandlerUSART(void *pvParameters);	//Tarea que recibe de la usart y da los semaforos de encendido y apagado
 static void vHandlerStart(void *pvParameters);	//Tarea donde se espera que se presione el boton de encendido
 static void vHandlerStop(void *pvParameters);	//Tarea donde se espera que se presione el boton de apagado
 static void vHandlerGetTemperature(void *pvParameters);	//Tarea que mide la temperatura
 static void vHandlerController(void *pvParameters);		//Tarea que controla la resistencia
 static void vHandlerZeroCrossing(void *pvParameters);	//Tarea que se ejecuta con los cruces por cero
 static void vHandlerUpdateTemperatureReference(void *pvParameters);	//Tarea que actualiza la referencia de temperatura
+static void vHandlerUSARTTransmit(void *pvParameters);	//Tarea que envia la data al teléfono
 
 #endif

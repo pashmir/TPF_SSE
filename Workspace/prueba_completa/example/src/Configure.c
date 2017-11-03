@@ -9,6 +9,21 @@ void SetupHardware(void){
 	Board_Init();
 }
 
+void ConfigureUSART()
+{
+	Board_UART_Init(USART);
+	Chip_UART_Init(USART);
+	Chip_UART_SetBaud(USART, 38400);  /* Set Baud rate */
+	Chip_UART_SetupFIFOS(USART, UART_FCR_FIFO_EN | UART_FCR_TRG_LEV0); /* Modify FCR (FIFO Control Register)*/
+	Chip_UART_TXEnable(USART); /* Enable UART Transmission */
+	Chip_UART_IntEnable(USART, UART_IER_RBRINT);
+	/* Enable Interrupt for UART channel */
+	/* Priority = 1 */
+	NVIC_SetPriority(USART_IRQN, 1);
+	/* Enable Interrupt for UART channel */
+	NVIC_EnableIRQ(USART_IRQN);
+}
+
 /* Configuracion del ADC */
 void ConfigureADC( void ){
 	Chip_ADC_Init(ADC_TEMPERATURE, &ADCSetup);						//Se inicializa el ADC

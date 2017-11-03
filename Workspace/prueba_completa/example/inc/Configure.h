@@ -2,6 +2,11 @@
 #define _CONFIGURE_H_
 
 #include "board.h"
+/* Configuracion de la USART */
+#define USART_IRQN_HANDLER 		 UART3_IRQHandler
+#define USART					 LPC_USART3
+#define USART_IRQN				 USART3_IRQn
+#define USART_INTERRUPT_PRIORITY 1
 
 /* Configuracion del ADC */
 #define ADC_TEMPERATURE			LPC_ADC0
@@ -50,6 +55,7 @@ ADC_CLOCK_SETUP_T ADCSetup;			//Estructura de condiguracion del ADC
 #define STOP_IRQN			PIN_INT2_IRQn		//Interrupcion
 
 void SetupHardware(void);				//Configuracion del hardware
+void ConfigureUSART(void);				//Configuracion de la USART
 void ConfigureADC(void);				//Configuracion del ADC
 void ConfigurePhaseDetector(void);		//Configuracion del detector de cruce por cero
 void ConfigureTriggerResistor(void);	//Configuracion del trigger que controla la resistencia
