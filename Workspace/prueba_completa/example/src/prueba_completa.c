@@ -1,4 +1,6 @@
 #include "main.h"
+/* Definidicion de los perfiles de temperatura*/
+struct temperature_profile temperature_profile1, temperature_profile2;
 
 /*****************************************************************************
  * Interrupciones
@@ -51,7 +53,7 @@ static void vHandlerUSART(void *pvParameters){
 		xSemaphoreTake(xUSARTSemaphore,portMAX_DELAY);
 		if (control_char=='B')
 			xSemaphoreGive(xStopSemaphore);
-		if (control_char=='A')
+		if (control_char=='A' || control_char=='C')
 			xSemaphoreGive(xStartSemaphore);
 		Chip_UART_IntEnable(USART, UART_IER_RBRINT);
 	}
@@ -104,9 +106,13 @@ static void vHandlerStart(void *pvParameters){
 		/* Se crea la tarea que detecta los cruces por cero */
 		xTaskCreate(vHandlerZeroCrossing, (char *) "ZeroCrossing", configMINIMAL_STACK_SIZE,
 							(void *) 0, (tskIDLE_PRIORITY + 2UL), &PhaseTaskHandle );
-		/* Se crea la tarea que actualiza la temperatura de referencia */
+		/* Se crea la tarea que actualiza la temperatura de referencia con el programa que corresponda*/
+		if (control_char=='A')
 		xTaskCreate(vHandlerUpdateTemperatureReference, (char *) "UpdateReference", configMINIMAL_STACK_SIZE,
-							(void *) 0, (tskIDLE_PRIORITY + 4UL), &UpdateReferenceTaskHandle );
+							(void *) &temperature_profile1, (tskIDLE_PRIORITY + 4UL), &UpdateReferenceTaskHandle );
+		if (control_char=='C')
+			xTaskCreate(vHandlerUpdateTemperatureReference, (char *) "UpdateReference", configMINIMAL_STACK_SIZE,
+								(void *) &temperature_profile2, (tskIDLE_PRIORITY + 4UL), &UpdateReferenceTaskHandle );
 		xTaskCreate(vHandlerUSARTTransmit, (char *) "USARTTransmit",configMINIMAL_STACK_SIZE,
 							(void *) 0, (tskIDLE_PRIORITY + 1U), &USARTTransmitTaskHandle);
 	}
@@ -245,11 +251,12 @@ static void vHandlerUpdateTemperatureReference(void *pvParameters){
 	portTickType xLastExecutionTime;
 
 	xLastExecutionTime = xTaskGetTickCount();
+	struct temperature_profile * temp_prof=(struct temperature_profile *)pvParameters;
 
 	while (1) {
 
-		if( i < sizeof(temperature_profile)/sizeof(float) ){
-			reference=temperature_profile[i];
+		if( i < temp_prof->size ){
+			reference=temp_prof->values[i];
 			i++;
 		}
 		else{
@@ -280,6 +287,10 @@ static void vHandlerUSARTTransmit(void *pvParameters)
  ****************************************************************************/
 int main(void){
 	SetupHardware();	//Se inicializa el hardware
+	temperature_profile1.values = &temperature_profile1_val;
+	temperature_profile1.size = sizeof(temperature_profile1_val)/sizeof(float);
+	temperature_profile2.values = &temperature_profile2_val;
+	temperature_profile2.size = sizeof(temperature_profile2_val)/sizeof(float);
 
 	vSemaphoreCreateBinary(xUSARTSemaphore);		//Se crea el semaforo que recibe de la usart
 	vSemaphoreCreateBinary(xStartSemaphore);

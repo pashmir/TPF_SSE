@@ -38,11 +38,11 @@ float thermocouple_temp=0;		//Temperatura de la termocupla
 bool trigger_state=false;		//Estado del trigger
 
 #define TEMPERATURE_INERTIA 5		//Inercia de temperatura del horno
-#define REFERENCE_INTERVAL (5000/(portTICK_RATE_MS))	//Intervalo de tiempo para la actualizacion de la referencia
+#define REFERENCE_INTERVAL (5000/(portTICK_RATE_MS))	//Intervalo de tiempo para la actualizacion de la referencia 5s es el viejo
 float reference=0;				//Temperatura de referencia
 
 /* Curva de temperatura que se debe seguir */
-const float temperature_profile[]={25,
+const float temperature_profile1_val[]={25,
 		   29.082,
 		   29.195,
 		   29.942,
@@ -92,6 +92,64 @@ const float temperature_profile[]={25,
 		   66.348,
 		   64.253,
 		   61.193
+};
+const float temperature_profile2_val[]={
+		80,80,80,80,80,80,80,80,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175,
+		175
+};
+
+struct temperature_profile {
+	float * values;
+	int size;
 };
 
 static void vHandlerUSART(void *pvParameters);	//Tarea que recibe de la usart y da los semaforos de encendido y apagado
