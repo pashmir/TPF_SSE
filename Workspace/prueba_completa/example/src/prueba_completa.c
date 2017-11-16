@@ -283,7 +283,7 @@ static void vHandlerUSARTTransmit(void *pvParameters)
 	xLastExecutionTime = xTaskGetTickCount();
 	while(1)
 	{
-		if (oven_state=OFF)
+		if (oven_state==OFF)
 		{
 			Chip_UART_SendByte(USART,temperature);
 			Chip_UART_SendByte(USART,'F');
@@ -292,7 +292,7 @@ static void vHandlerUSARTTransmit(void *pvParameters)
 		temperature = (uint8_t) get_temperature( thermocouple_temp );
 		Chip_UART_SendByte(USART,temperature);
 		Chip_UART_SendByte(USART,'\n');
-		vTaskDelayUntil(&xLastExecutionTime, 1000 / portTICK_RATE_MS); //envia la data cada 1 seg
+		vTaskDelayUntil(&xLastExecutionTime, 7000 / portTICK_RATE_MS); //envia la data cada 6 seg
 	}
 }
 

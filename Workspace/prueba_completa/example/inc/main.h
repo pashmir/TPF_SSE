@@ -36,8 +36,8 @@ TaskHandle_t USARTTransmitTaskHandle;	//Handler de la tarea que envia la info me
 
 float thermocouple_temp=0;		//Temperatura de la termocupla
 bool trigger_state=false;		//Estado del trigger
-#define OFF FALSE
-#define ON TRUE
+#define OFF false
+#define ON true
 bool oven_state=OFF;
 
 #define TEMPERATURE_INERTIA 5		//Inercia de temperatura del horno
@@ -111,47 +111,6 @@ const float temperature_profile1_val[]={
 };
 const float temperature_profile2_val[]={
 		80,80,80,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
-		175,
 		175,
 		175,
 		175,
