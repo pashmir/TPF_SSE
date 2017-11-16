@@ -63,7 +63,7 @@ static void vHandlerUSART(void *pvParameters){
  * de encendido. */
 static void vHandlerStart(void *pvParameters){
 
-	ConfigureStartButton();		//Se configura el boton de encendido
+	//ConfigureStartButton();		//Se configura el boton de encendido
     Board_LED_Set(4, false);		//Se apaga el led de encendido
     Board_LED_Set(5, true);			//Se enciende el led de apagado
 
@@ -78,9 +78,9 @@ static void vHandlerStart(void *pvParameters){
 	Board_LED_Set(4, true);			//Se enciende un led para indicar que esta encendido
 	Board_LED_Set(5, false);		//Se apaga el led de apagado
 
-	NVIC_DisableIRQ(START_IRQN);	//Deshabilito las interrupciones del boton de encendido
+	//NVIC_DisableIRQ(START_IRQN);	//Deshabilito las interrupciones del boton de encendido
 
-	ConfigureStopButton();		//Se configura el boton de apagado
+	//ConfigureStopButton();		//Se configura el boton de apagado
 	ConfigureADC();				//Configuracion del ADC
 	ConfigurePhaseDetector();	//Configuracion del detector de cruce por cero
 	ConfigureTriggerResistor();	//Configuracion del trigger que controla la resistencia
@@ -113,6 +113,7 @@ static void vHandlerStart(void *pvParameters){
 		if (control_char=='C')
 			xTaskCreate(vHandlerUpdateTemperatureReference, (char *) "UpdateReference", configMINIMAL_STACK_SIZE,
 								(void *) &temperature_profile2, (tskIDLE_PRIORITY + 4UL), &UpdateReferenceTaskHandle );
+		oven_state=ON;
 		xTaskCreate(vHandlerUSARTTransmit, (char *) "USARTTransmit",configMINIMAL_STACK_SIZE,
 							(void *) 0, (tskIDLE_PRIORITY + 1U), &USARTTransmitTaskHandle);
 	}
@@ -138,7 +139,13 @@ static void vHandlerStart(void *pvParameters){
 			vTaskResume(ADCTaskHandle);
 			vTaskResume(ControllerTaskHandle);
 			vTaskResume(PhaseTaskHandle);
-			vTaskResume(UpdateReferenceTaskHandle);
+			if (control_char=='A')
+				xTaskCreate(vHandlerUpdateTemperatureReference, (char *) "UpdateReference", configMINIMAL_STACK_SIZE,
+										(void *) &temperature_profile1, (tskIDLE_PRIORITY + 4UL), &UpdateReferenceTaskHandle );
+			if (control_char=='C')
+				xTaskCreate(vHandlerUpdateTemperatureReference, (char *) "UpdateReference", configMINIMAL_STACK_SIZE,
+										(void *) &temperature_profile2, (tskIDLE_PRIORITY + 4UL), &UpdateReferenceTaskHandle );
+			oven_state=ON;
 			vTaskResume(USARTTransmitTaskHandle);
 
 			vTaskSuspend( StartTaskHandle );	//Se suspende la tarea de encendido
@@ -162,8 +169,8 @@ static void vHandlerStop(void *pvParameters){
         Board_LED_Set(4, false);	//Se apaga el led de encendido
         Board_LED_Set(5, true);		//Se enciende el led de apagado
 
-        NVIC_EnableIRQ(START_IRQN);	//Habilito las interrupciones del boton de encendido
-        NVIC_DisableIRQ(STOP_IRQN);	//Deshabilito las interrupciones del boton de apagado
+        //NVIC_EnableIRQ(START_IRQN);	//Habilito las interrupciones del boton de encendido
+        //NVIC_DisableIRQ(STOP_IRQN);	//Deshabilito las interrupciones del boton de apagado
 
         NVIC_DisableIRQ(ADC_IRQN);		//Deshabilito las interrupciones del ADC
         NVIC_DisableIRQ(PHASE_IRQN);	//Deshabilito las interrupciones del detector de fase
@@ -172,8 +179,9 @@ static void vHandlerStop(void *pvParameters){
         vTaskSuspend( ADCTaskHandle );
         vTaskSuspend( ControllerTaskHandle );
         vTaskSuspend( PhaseTaskHandle );
-        vTaskSuspend( UpdateReferenceTaskHandle );
-        vTaskSuspend( USARTTransmitTaskHandle );
+        vTaskDelete( UpdateReferenceTaskHandle );
+        //vTaskSuspend( USARTTransmitTaskHandle );
+        oven_state=OFF;
 
         /* Se apaga la resistencia calentadora */
         Chip_GPIO_SetPinState(LPC_GPIO_PORT, TRIGGER_GPIO_INT_PORT, TRIGGER_GPIO_INT_PIN, false);
@@ -275,10 +283,16 @@ static void vHandlerUSARTTransmit(void *pvParameters)
 	xLastExecutionTime = xTaskGetTickCount();
 	while(1)
 	{
-	temperature = (uint8_t) get_temperature( thermocouple_temp );
-	Chip_UART_SendByte(USART,temperature);
-	Chip_UART_SendByte(USART,'\n');
-	vTaskDelayUntil(&xLastExecutionTime,1000 / portTICK_RATE_MS);//envia la data cada 1 seg
+		if (oven_state=OFF)
+		{
+			Chip_UART_SendByte(USART,temperature);
+			Chip_UART_SendByte(USART,'F');
+			vTaskSuspend( USARTTransmitTaskHandle );
+		}
+		temperature = (uint8_t) get_temperature( thermocouple_temp );
+		Chip_UART_SendByte(USART,temperature);
+		Chip_UART_SendByte(USART,'\n');
+		vTaskDelayUntil(&xLastExecutionTime, 1000 / portTICK_RATE_MS); //envia la data cada 1 seg
 	}
 }
 
